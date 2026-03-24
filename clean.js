@@ -1,27 +1,27 @@
 //Constantes
-var TOPE = 8;
+var MAX_RESULTS = 8;
 var levDistance = 2;
-let langBuscador = getCookie('LANG');
-let countryBuscador = getCntry();
-var buscadorContainer = document.getElementsByClassName('buscador-container')[0];
+let searchLanguage = getCookie('LANG');
+let searchCountry = getCountry();
+var searchContainer = document.getElementsByClassName('search-container')[0];
 var API_URL;
 const skipCache = Math.floor(Math.random() * (1 - 5000)) + 1;
 
-if (langBuscador) {
-    API_URL = `api with items`;
+if (searchLanguage) {
+    API_URL = `your_api_endpoint?lang=${searchLanguage}&skipCache=${skipCache}`;
 } else {
-    API_URL = 'default api with items';
+    API_URL = 'your_api_endpoint?skipCache=' + skipCache;
 }
 
-let deviceBuscador = '';
+let deviceSearch = '';
 
 if (navigator.userAgent.match(/Android|BlackBerry|iPhone|iPad|iPod|Opera Mini|IEMobile/i)) {
-    deviceBuscador = 'mobile';
+    deviceSearch = 'mobile';
 } else {
-    deviceBuscador = 'desktop';
+    deviceSearch = 'desktop';
 }
 
-async function getJuegos() {
+async function getGames() {
     try {
         let req = await fetch(API_URL);
         if (req.status === 200) {
@@ -35,7 +35,7 @@ async function getJuegos() {
     }
 }
 
-var json_alias = [
+var aliasJson = [
     {
         url: 'item-uriSufix',
         name: 'item name',
@@ -43,7 +43,7 @@ var json_alias = [
     }
 ]
 
-var json_themes = [
+var themesJson = [
     {
         nombre_pt: 'frutas',
         nombre_en: 'fruits',
@@ -55,7 +55,7 @@ var json_themes = [
     }
 ]
 
-var json_proveedores = [
+var providersJson = [
     {
         nombre: 'evolution',
         url: 'url_to_provider',
@@ -64,7 +64,7 @@ var json_proveedores = [
 ]
 
 //Chequeo si los juegos ya están guardados en sessionStorage
-async function chequear_y_guardar_items() {
+async function checkAndStoreItems() {
     if (sessionStorage.getItem('juegos')) {
         let expiration = JSON.parse(sessionStorage.getItem('expiration'));
         let currentDate = new Date().getTime();
@@ -73,14 +73,14 @@ async function chequear_y_guardar_items() {
             sessionStorage.removeItem('juegos');
             sessionStorage.removeItem('expiration');
 
-            return chequear_y_guardar_items();
+            return checkAndStoreItems();
         } else {
             return JSON.parse(sessionStorage.getItem('juegos'));
         }
     } else {
-        let juegos = await getJuegos();
+        let juegos = await getGames();
         if (juegos) {
-            juegos = guardar_alias_filtrar_keys(juegos);
+            juegos = applyAliasFilterKeys(juegos);
             let current_date = new Date().getTime();
             let expiration_date = current_date + 10000;
             sessionStorage.setItem('juegos', JSON.stringify(juegos));
@@ -94,7 +94,7 @@ async function chequear_y_guardar_items() {
     }
 }
 
-function guardar_alias_filtrar_keys(juegos) {
+function applyAliasFilterKeys(juegos) {
     for (let i = 0; i < juegos.length; i++) {
         delete juegos[i].brandCode;
         delete juegos[i].bucket;
@@ -114,9 +114,9 @@ function guardar_alias_filtrar_keys(juegos) {
         delete juegos[i].fields.sitemapEnabled;
         delete juegos[i].fields.sitemapPriority;
         delete juegos[i].fields.version;
-        for (let j = 0; j < json_alias.length; j++) {
-            if (juegos[i].uriSuffix == json_alias[j].url) {
-                juegos[i].alias = json_alias[j].keywords;
+        for (let j = 0; j < aliasJson.length; j++) {
+            if (juegos[i].uriSuffix == aliasJson[j].url) {
+                juegos[i].alias = aliasJson[j].keywords;
             }
         }
     }
@@ -127,7 +127,7 @@ function removeDuplicated(arr) {
     return arr.filter((item, index) => arr.indexOf(item) === index);
 }
 
-function filtrarJuegosDisponibles(arr) {
+function filterAvailableGames(arr) {
     const res = arr.map(x => checkDeviceAviability(x));
     return res;
 }
@@ -158,37 +158,37 @@ function checkDeviceAviability(obj) {
     return obj;
 }
 
-function newArraySorted(juegos, substr) {
+function getSortedMatches(juegos, substr) {
     if (juegos && substr) {
-        substr = normalize(substr).trim();
-        juegos = filtrarJuegosDisponibles(juegos);
+        substr = normalizeText(substr).trim();
+        juegos = filterAvailableGames(juegos);
         let matchesArr = [];
         var topeChar = 4;
 
         //Match providers 
-        for (let i = 0; i < json_proveedores.length; i++) {
-            if (normalize(json_proveedores[i].nombre).includes(substr)) {
-                json_proveedores[i].flag = 'provider'
-                matchesArr.unshift(json_proveedores[i])
+        for (let i = 0; i < providersJson.length; i++) {
+            if (normalizeText(providersJson[i].nombre).includes(substr)) {
+                providersJson[i].flag = 'provider'
+                matchesArr.unshift(providersJson[i])
             }
         }
 
         //Match by themes
-        for (let i = 0; i < json_themes.length; i++) {
-            if (langBuscador == 'es') {
-                if (normalize(json_themes[i].nombre_es).includes(substr)) {
-                    json_themes[i].flag = 'category'
-                    matchesArr.unshift(json_themes[i])
+        for (let i = 0; i < themesJson.length; i++) {
+            if (searchLanguage == 'es') {
+                if (normalizeText(themesJson[i].nombre_es).includes(substr)) {
+                    themesJson[i].flag = 'category'
+                    matchesArr.unshift(themesJson[i])
                 }
-            } else if (langBuscador == 'en') {
-                if (normalize(json_themes[i].nombre_en).includes(substr)) {
-                    json_themes[i].flag = 'category'
-                    matchesArr.unshift(json_themes[i])
+            } else if (searchLanguage == 'en') {
+                if (normalizeText(themesJson[i].nombre_en).includes(substr)) {
+                    themesJson[i].flag = 'category'
+                    matchesArr.unshift(themesJson[i])
                 }
             } else {
-                if (normalize(json_themes[i].nombre_pt).includes(substr)) {
-                    json_themes[i].flag = 'category'
-                    matchesArr.unshift(json_themes[i])
+                if (normalizeText(themesJson[i].nombre_pt).includes(substr)) {
+                    themesJson[i].flag = 'category'
+                    matchesArr.unshift(themesJson[i])
                 }
             }
         }
@@ -196,7 +196,7 @@ function newArraySorted(juegos, substr) {
         //Exact match with first word
         for (let i = 0; i < juegos.length; i++) {
             if (matchesArr.length < TOPE) {
-                let tituloJuego = normalize(juegos[i].fields.title.trim());
+                let tituloJuego = normalizeText(juegos[i].fields.title.trim());
                 let firstWord = tituloJuego.split(' ')[0];
 
                 if (firstWord.includes(substr)) {
@@ -215,7 +215,7 @@ function newArraySorted(juegos, substr) {
         //Exact match with entire title
         for (let i = 0; i < juegos.length; i++) {
             if (matchesArr.length < TOPE) {
-                let tituloJuego = normalize(juegos[i].fields.title.trim());
+                let tituloJuego = normalizeText(juegos[i].fields.title.trim());
 
                 if (tituloJuego.includes(substr)) {
                     matchesArr.push(juegos[i]);
@@ -250,7 +250,7 @@ function newArraySorted(juegos, substr) {
         for (let i = 0; i < juegos.length; i++) {
             if (matchesArr.length < TOPE) {
                 //Convert game name in array
-                let tituloArr = normalize(juegos[i].fields.title.trim()).split(' ');
+                let tituloArr = normalizeText(juegos[i].fields.title.trim()).split(' ');
 
                 loop1:
                 for (let j = 0; j < tituloArr.length; j++) {
@@ -332,12 +332,12 @@ function newArraySorted(juegos, substr) {
 }
 
 //Imprimir resultados en el html
-function printResults(arr) {
+function renderResults(arr) {
     let https_brandSite = 'https://www.brandsite.com';
 
-    if (langBuscador == 'es')
+    if (searchLanguage == 'es')
         https_brandSite += '/es'
-    else if (langBuscador == 'en') {
+    else if (searchLanguage == 'en') {
         https_brandSite += '/en'
     }
 
@@ -348,10 +348,10 @@ function printResults(arr) {
     let results_title = 'Resultados';
     let not_results = 'Não se acharam resultados.';
 
-    if (langBuscador == 'es') {
+    if (searchLanguage == 'es') {
         not_results = 'No se encontraron resultados.';
     }
-    else if (langBuscador == 'en') {
+    else if (searchLanguage == 'en') {
         not_results = 'Not matches were found.';
         results_title = 'Results';
     }
@@ -362,19 +362,19 @@ function printResults(arr) {
             arr.forEach(element => {
                 if (element.flag == 'category') {
                     inner_results_insert += `
-          <a href='${langBuscador == 'es' ? element.url_es : langBuscador == 'en' ? element.url_en : element.url_pt}' class='result_item'>
+          <a href='${searchLanguage == 'es' ? element.url_es : searchLanguage == 'en' ? element.url_en : element.url_pt}' class='result_item'>
           <li class='item_container'>
           <div class='game_info'>
               <div class='result_item_container categoria'>
                 <img src='${element.img}'/>
               </div>
               <div>
-                <p class='bold'>${langBuscador == 'es' ? element.nombre_es.toUpperCase() : langBuscador == 'en' ? element.nombre_en.toUpperCase() : element.nombre_pt.toUpperCase()}</p>
+                <p class='bold'>${searchLanguage == 'es' ? element.nombre_es.toUpperCase() : searchLanguage == 'en' ? element.nombre_en.toUpperCase() : element.nombre_pt.toUpperCase()}</p>
               </div>
           </div>
           <div class='category'>
             <span>
-            ${langBuscador == 'es' ? 'CATEGORÍA' : langBuscador == 'en' ? 'CATEGORY' : 'CATEGORIA'}
+            ${searchLanguage == 'es' ? 'CATEGORÍA' : searchLanguage == 'en' ? 'CATEGORY' : 'CATEGORIA'}
             </span>
           </div>  
           </li>
@@ -394,7 +394,7 @@ function printResults(arr) {
           </div>
           <div class='category'>
             <span>
-            ${langBuscador == 'es' ? 'PROVEEDOR' : langBuscador == 'en' ? 'PROVIDER' : 'FORNECEDOR'}
+            ${searchLanguage == 'es' ? 'PROVEEDOR' : searchLanguage == 'en' ? 'PROVIDER' : 'FORNECEDOR'}
             </span>
           </div>  
           </li>
@@ -486,24 +486,24 @@ function quitarPreload() {
     }
 }
 
-function buscadorCasinoIniziator() {
+function initCasinoSearch() {
     console.log('iniziator')
     if (!document.getElementById('pBuscadorCasino')) {
         let p = document.createElement('p');
         let body = document.getElementsByTagName('body')[0]
         body.appendChild(p)
         p.setAttribute('id', 'pBuscadorCasino');
-        start_buscador()
+        startSearch()
     }
 }
 
-async function start_buscador() {
-    let juegos = await chequear_y_guardar_items();
+async function startSearch() {
+    let juegos = await checkAndStoreItems();
     quitarPreload();
     var from_input = true;
 
     setInterval(async function () {
-        juegos = await chequear_y_guardar_items()
+        juegos = await checkAndStoreItems()
         return juegos;
     }, 1000 * 60 * 5); // 5 minutos
 
@@ -527,10 +527,10 @@ async function start_buscador() {
                 from_input = true;
                 touch_out = false;
                 let search_input_value = search_input.value;
-                var results = newArraySorted(juegos, search_input_value);
+                var results = getSortedMatches(juegos, search_input_value);
             }
 
-            inner_results.innerHTML = printResults(results);
+            inner_results.innerHTML = renderResults(results);
         }, 300))
 
         //Guardar registro pasado 1s 
@@ -560,8 +560,8 @@ async function start_buscador() {
             if (from_input == true) {
                 if (search_input.value.length >= 3) {
                     let search_input_value = search_input.value;
-                    // var results = newArraySorted(juegos, search_input_value);
-                    // inner_results.innerHTML = printResults(results);
+                    // var results = getSortedMatches(juegos, search_input_value);
+                    // inner_results.innerHTML = renderResults(results);
                     search_input.blur();
                 } else {
                     inner_results.innerHTML = '';
@@ -577,8 +577,8 @@ async function start_buscador() {
             if (search_icon.contains(e.target)) {
                 if (search_input.value.length >= 3) {
                     let search_input_value = search_input.value;
-                    var results = newArraySorted(juegos, search_input_value);
-                    inner_results.innerHTML = printResults(results);
+                    var results = getSortedMatches(juegos, search_input_value);
+                    inner_results.innerHTML = renderResults(results);
                 }
                 search_input.blur();
                 touch_out = true;
@@ -624,10 +624,10 @@ async function start_buscador() {
 }
 
 //Remover caracteres especiales, tildes, apostrofes
-function normalize(str) {
+function normalizeText(str) {
     if (str) {
         str = str.replace(/'/, '');
-        return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        return str.normalizeText('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     }
 }
 
@@ -663,11 +663,11 @@ function getCookieVariant(cname) {
     return '';
 }
 
-function getCntry() {
+function getCountry() {
     return getCookieVariant('variant').find(x => x.split(':')[0] == 'cntry').split('cntry:')[1];
 }
 
-function get_account_number() {
+function getAccountNumber() {
     const logged = localStorage.getItem('customerId');
     if (logged) {
         return JSON.parse(logged).value;
@@ -773,11 +773,11 @@ function levenshtein(s, t) {
     return h;
 }
 
-var findStartingCode = function (word) {
+var getStartingSoundexCode = function (word) {
     return word[0].toUpperCase();
 };
 
-var findLetterCode = function (letter) {
+var getSoundexLetterCode = function (letter) {
     switch (letter.toUpperCase()) {
         case 'B':
         case 'F':
@@ -816,10 +816,10 @@ var findLetterCode = function (letter) {
 
 var calculateSoundexCode = function (word) {
     if (word) {
-        let wordCode = findStartingCode(word);
-        let lastCode = findLetterCode(wordCode); // wordCode contains one letter at the begining
+        let wordCode = getStartingSoundexCode(word);
+        let lastCode = getSoundexLetterCode(wordCode); // wordCode contains one letter at the begining
         for (let i = 1; i < word.length; ++i) {
-            var letterCode = findLetterCode(word[i]);
+            var letterCode = getSoundexLetterCode(word[i]);
             if (letterCode && letterCode != lastCode) {
                 wordCode += letterCode;
                 if (wordCode.length == 4) {
@@ -841,7 +841,7 @@ async function createRow(input) {
     let formData = new FormData();
     input = input.trim();
 
-    formData.append('country', countryBuscador);
+    formData.append('country', searchCountry);
     formData.append('device', deviceBuscador);
     formData.append('search_input', input + ' ;');
 
@@ -859,7 +859,7 @@ async function saveNotMatchedString(input) {
     let formData = new FormData();
     input = input.trim();
 
-    formData.append('country', countryBuscador);
+    formData.append('country', searchCountry);
     formData.append('device', deviceBuscador);
     formData.append('search_input', input + ' ;');
 
@@ -871,4 +871,4 @@ async function saveNotMatchedString(input) {
     return res;
 }
 
-start_buscador()
+startSearch()
